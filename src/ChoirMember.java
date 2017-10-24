@@ -1,15 +1,56 @@
+import java.util.List;
 
-public class ChoirMember {
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.LineUnavailableException;
+import javax.sound.sampled.SourceDataLine;
+
+public class ChoirMember extends Thread{
 	private Note noteOne;
 	private Note noteTwo;
+	final AudioFormat af;
+	private Thread t;
 	
 	public ChoirMember() {
+		af = new AudioFormat(Note.SAMPLE_RATE, 8, 1, true, false);
+		t = new Thread(this);
+	}
+	
+	public void startPlaying() {
+		t.start();
+	}
+	
+	public void run() {
 		//is it my turn? some function associated with the mutex
-		
+	
 		//acquire the mutex 
-		//play note
+		//play();
 		//release the mutex
 	}
+
+	
+	void play(BellNote note) throws LineUnavailableException {
+        try (final SourceDataLine line = AudioSystem.getSourceDataLine(af)) {
+            line.open();
+            line.start();
+            playNote(line, note);
+            line.drain();
+        }
+    }
+	
+    private void playNote(SourceDataLine line, BellNote bn) {
+        final int ms = Math.min(bn.length.timeMs(), Note.MEASURE_LENGTH_SEC * 1000);
+        final int length = Note.SAMPLE_RATE * ms / 1000;
+        line.write(bn.note.sample(), 0, length);
+        line.write(Note.REST.sample(), 0, 50);
+    }
+    
+    public void concludeMusicSession() {
+    	try {
+			t.join();
+		} catch (InterruptedException e) {e.printStackTrace();}
+    }
+    
 }
 
 
