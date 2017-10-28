@@ -216,7 +216,6 @@ public class Conductor {
 }
 
 
-//These classes from Nate Williams
 /**
 * This class defines one bell note with note and length
 *
@@ -273,7 +272,19 @@ enum Note {
   F4S,
   G4,
   G4S,
-  A5;
+  A5,
+  A5S,
+  B5,
+  C5,
+  C5S,
+  D5,
+  D5S,
+  E5,
+  F5,
+  F5S,
+  G5,
+  G5S,
+  A6;
 
   public static final int SAMPLE_RATE = 48 * 1024; // ~48KHz
   public static final int MEASURE_LENGTH_SEC = 1;

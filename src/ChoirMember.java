@@ -13,8 +13,12 @@ public class ChoirMember extends Thread{
 	private final AudioFormat af;
 	private Thread t;
 	private Conductor mutex;
-	private int[] turnsAndLengths;
 	
+	/**
+	 * Creates a new ChoirMember object which can play BellNotes when given a Note and Length via {@link #addNoteToPlay(Note, NoteLength, int)}
+	 * and {@link #startPlaying()}
+	 * @param c
+	 */
 	public ChoirMember(Conductor c) {
 		af = new AudioFormat(Note.SAMPLE_RATE, 8, 1, true, false);
 		t = new Thread(this);
