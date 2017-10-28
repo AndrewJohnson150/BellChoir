@@ -64,6 +64,11 @@ public class ChoirMember extends Thread{
 	}
 
 	
+	/**
+	 * opens the line, calls playNote, then drains and closes the line.
+	 * @see #playNote(SourceDataLine, BellNote)
+	 * @param note the BellNote to play
+	 */
 	void play(BellNote note) throws LineUnavailableException {
         try (final SourceDataLine line = AudioSystem.getSourceDataLine(af)) {
             line.open();
@@ -73,6 +78,12 @@ public class ChoirMember extends Thread{
         }
     }
 	
+	/**
+	 * called by the play method. playes the note when passed the line to play to and the BellNote
+	 * @see #play(BellNote)
+	 * @param line
+	 * @param bn
+	 */
     private void playNote(SourceDataLine line, BellNote bn) {
         final int ms = Math.min(bn.length.timeMs(), Note.MEASURE_LENGTH_SEC * 1000);
         final int length = Note.SAMPLE_RATE * ms / 1000;
@@ -80,6 +91,10 @@ public class ChoirMember extends Thread{
         line.write(Note.REST.sample(), 0, 50);
     }
     
+    /**
+     * Unnecessary but used as a good sanity check. Will join the thread. This should happen automatically when
+     * the run() method finishes but just in case we do it here too.
+     */
     public void concludeMusicSession() {
     	try {
 			t.join();

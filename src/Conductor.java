@@ -10,11 +10,15 @@ import java.util.Map;
 
 public class Conductor {
 	
+	/**
+	 * this method just creates the song to play
+	 * @param args - args[0] should designate the name of the song file to play
+	 */
 	public static void main(String[] args) {
 		try {
 			Conductor c = new Conductor(args[0]);
 		} catch (FileNotFoundException e) {
-			System.err.println("Invalid file name. Try again.");
+			System.err.println(e.getMessage());
 		}
 	}
 	
@@ -25,6 +29,13 @@ public class Conductor {
 	private List<String> notes;
 	private List<String> lengths;
 	
+	/**
+	 * This method does a lot. It reads the file, validates input, creates the ChoirMembers to play the song, plays the song,
+	 * and then it ensures that all the ChoirMember threads have joined.
+	 *  
+	 * @param fileName - the name of the file which contains the music
+	 * @throws FileNotFoundException
+	 */
 	public Conductor(String fileName) throws FileNotFoundException {
 		enumMap = new HashMap<Note,ChoirMember>();
 		songIsOver = false;
@@ -42,15 +53,15 @@ public class Conductor {
 		 try (FileReader fileReader = new FileReader(songFile);
                  BufferedReader in = new BufferedReader(fileReader)) {
 			
+			//read the input here
 			String nextLine = in.readLine();
 			while (nextLine != null) {
 				input.add(nextLine);
 				nextLine = in.readLine();
 			}
-			
 		} catch (Exception ignored) {ignored.printStackTrace();}
-		
-		
+
+		 //validateInput(input) validates the input
 		if (validateInput(input)) {
 			for (String s : input) {
 				String[] parsedLine = s.split("\\s+");
@@ -59,7 +70,7 @@ public class Conductor {
 			}
 			choir = hireChoir();
 			startMusic();
-			while (!songIsOver) {
+			while (!songIsOver) { //while we haven't been signalled that the song is over, keep waiting
 				synchronized (this) {
 					try {
 						wait();
@@ -68,11 +79,17 @@ public class Conductor {
 					}
 				}
 			}
+			//once the song has ended, ensure all threads have joined.
 			fireChoir();
 		}
 		
 	}
 	
+	/**
+	 * Because this class is used as a mutex, it has an acquire method. Will wait if it is not the turn of the one 
+	 * who called it.
+	 * @param x the turn of the ChoirMember calling the method
+	 */
 	public synchronized void acquire(int x) {
 		while (x!=turn) {
 			try {
@@ -81,6 +98,10 @@ public class Conductor {
 		}
 	}
 	
+	/**
+	 * this is called when a ChoirMember finishes its turn. if the turn is the last one, make sure we 
+	 * set songIsOver to true. Wake up everyone waiting. Waiting is done in {@link #acquire(int)} and {@link #Conductor(String)}
+	 */
 	public synchronized void release() {
 		turn++;
 		if (turn==notes.size()) {
@@ -89,6 +110,13 @@ public class Conductor {
 		notifyAll();	
 	}
 
+	/**
+	 * creates the ChoirMembers for the notes and lengths Lists. 
+	 * Each ChoirMember is given at most 2 notes to play (but could play those 2 notes 500 times),
+	 * and we use a hashMap to determine which notes already have
+	 * an associated ChoirMember.
+	 * @return the list of ChoirMembers
+	 */
 	private ArrayList<ChoirMember> hireChoir() {
 		ArrayList<ChoirMember> c = new ArrayList<ChoirMember>();
 		
@@ -110,18 +138,29 @@ public class Conductor {
 		return c;
 	}
 	
+	/**
+	 * ensures all ChoirMember threads have joined/ended.
+	 */
 	private void fireChoir() {
 		for (ChoirMember c : choir) {
 			c.concludeMusicSession();
 		}
 	}
 	
+	/**
+	 * signals each choirMember to play music
+	 */
 	private void startMusic() {
 		for (ChoirMember c : choir) {
 			c.startPlaying();
 		}
 	}
 	
+	/**
+	 * checks to make sure that the input is valid.
+	 * @param input - what has been read in as the input
+	 * @return True if the input is valid
+	 */
 	private boolean validateInput(List<String> input) {
 		boolean valid = true;
 
@@ -149,15 +188,17 @@ public class Conductor {
 				}
 			}
 		}
-
 		if (!valid) {
 			System.err.println("Invalid input. Program will now terminate.");
 		}
-		
 		return valid;
-		
 	}
 	
+	/**
+	 * takes a number, 1, 2, 4, or 8, and converts it to a NoteLength.
+	 * @param len - string that should be 1 2 4 or 8 to designate the length of the note
+	 * @return A NoteLength object as designated by parameter.  If it is an invalid length, will return null
+	 */
 	private NoteLength numberToNoteLength(String len) {
 		switch (len) {
 			case "1":
@@ -177,7 +218,7 @@ public class Conductor {
 
 //These classes from Nate Williams
 /**
-* This class defines one bell not with note and length
+* This class defines one bell note with note and length
 *
 */
 class BellNote {
