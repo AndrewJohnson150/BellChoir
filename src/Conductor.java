@@ -1,4 +1,6 @@
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -9,44 +11,66 @@ import java.util.Map;
 public class Conductor {
 	
 	public static void main(String[] args) {
-		Conductor c = new Conductor("musicFile.txt");
+		try {
+			Conductor c = new Conductor(args[0]);
+		} catch (FileNotFoundException e) {
+			System.err.println("Invalid file name. Try again.");
+		}
 	}
 	
-	private boolean someoneIsSinging;
+	private boolean songIsOver;
 	private int turn;
-	private Map enumMap;
+	private Map<Note,ChoirMember> enumMap;
 	private List<ChoirMember> choir;
 	private List<String> notes;
 	private List<String> lengths;
 	
-	public Conductor(String fileName) {
+	public Conductor(String fileName) throws FileNotFoundException {
 		enumMap = new HashMap<Note,ChoirMember>();
-		someoneIsSinging = false;
+		songIsOver = false;
 		turn = 0;
 		
-		notes = new LinkedList<String>();
-		lengths = new LinkedList<String>();
+		notes = new ArrayList<String>();
+		lengths = new ArrayList<String>();
 		
-		List<String> input = new LinkedList<String>();
+		List<String> input = new ArrayList<String>();
 		
-		try {
-			BufferedReader in = new BufferedReader(new FileReader(fileName));
+		File songFile = new File(fileName);
+		if (!songFile.exists()) {
+			throw new FileNotFoundException("File " + fileName + " cannot be located. Try again");
+		}
+		 try (FileReader fileReader = new FileReader(songFile);
+                 BufferedReader in = new BufferedReader(fileReader)) {
+			
 			String nextLine = in.readLine();
 			while (nextLine != null) {
 				input.add(nextLine);
 				nextLine = in.readLine();
 			}
+			
 		} catch (Exception ignored) {ignored.printStackTrace();}
 		
-		for (String s : input) {
-			String[] parsedLine = s.split("\\s+");
-			notes.add(parsedLine[0]);
-			lengths.add(parsedLine[1]);
+		
+		if (validateInput(input)) {
+			for (String s : input) {
+				String[] parsedLine = s.split("\\s+");
+				notes.add(parsedLine[0]);
+				lengths.add(parsedLine[1]);
+			}
+			choir = hireChoir();
+			startMusic();
+			while (!songIsOver) {
+				synchronized (this) {
+					try {
+						wait();
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+				}
+			}
+			fireChoir();
 		}
 		
-		validateInput();
-		
-		choir = hireChoir();
 	}
 	
 	public synchronized void acquire(int x) {
@@ -55,19 +79,18 @@ public class Conductor {
 				wait();
 			} catch (InterruptedException ignore) {}
 		}
-		someoneIsSinging = true;	
 	}
 	
-	
 	public synchronized void release() {
-		someoneIsSinging = false;
 		turn++;
+		if (turn==notes.size()) {
+			songIsOver = true;
+		}
 		notifyAll();	
 	}
 
 	private ArrayList<ChoirMember> hireChoir() {
 		ArrayList<ChoirMember> c = new ArrayList<ChoirMember>();
-		LinkedList<String> allNotes = new LinkedList<String>();
 		
 		for (int i = 0;i<notes.size();i++) {
 			Note noteToPass = Note.valueOf(notes.get(i));
@@ -87,29 +110,66 @@ public class Conductor {
 		return c;
 	}
 	
-	private void validateInput() {
-		//check all notes
-		for (String note : notes) {
-			
+	private void fireChoir() {
+		for (ChoirMember c : choir) {
+			c.concludeMusicSession();
+		}
+	}
+	
+	private void startMusic() {
+		for (ChoirMember c : choir) {
+			c.startPlaying();
+		}
+	}
+	
+	private boolean validateInput(List<String> input) {
+		boolean valid = true;
+
+		for (String s : input) {
+			String[] parsedLine = s.split("\\s+");
+			if (parsedLine.length!=2) {
+				valid = false;
+				System.err.println(s + " is not a valid line.");
+			}
+			else {
+				//check the note
+				String note = parsedLine[0];
+				try {
+					Note.valueOf(note); //if this fails, it was invalid
+				} catch(Exception ignore) {
+					valid = false;
+					System.err.println(note + " is not a valid note.");
+				}
+				
+				//check the length
+				String len = parsedLine[1];
+				if (numberToNoteLength(len)==null) {
+					System.err.println(len + " is not a valid note length.");
+					valid = false;
+				}
+			}
+		}
+
+		if (!valid) {
+			System.err.println("Invalid input. Program will now terminate.");
 		}
 		
-		//check all note lengths
-		for (String len : lengths) {
-			
-		}
-		//check format?
+		return valid;
+		
 	}
 	
 	private NoteLength numberToNoteLength(String len) {
-		if (len.equals("1")) 
-			return NoteLength.WHOLE;
-		else if (len.equals("2"))
-			return NoteLength.HALF;
-		else if (len.equals("4"))
-			return NoteLength.QUARTER;
-		else
-			return NoteLength.EIGTH;
-		
+		switch (len) {
+			case "1":
+				return NoteLength.WHOLE;
+			case "2":
+				return NoteLength.HALF;
+			case "4":
+				return NoteLength.QUARTER;
+			case "8":
+				return NoteLength.EIGTH;
+		}
+		return null;
 	}
 	
 }

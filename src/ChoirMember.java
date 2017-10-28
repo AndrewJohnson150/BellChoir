@@ -24,16 +24,30 @@ public class ChoirMember extends Thread{
 		turns = new ArrayList<Integer>();
 	}
 	
+	/**
+	 * this method gives a ChoirMember a new note to play
+	 * @param n the Note to play
+	 * @param len the NoteLength which designates how long to play for
+	 * @param t the turn at which the note should be played
+	 */
 	public void addNoteToPlay(Note n, NoteLength len, int t) {
 		notes.add(n);
 		lengths.add(len);
 		turns.add(t);
 	}
 	
+	/**
+	 * starts playing notes
+	 */
 	public void startPlaying() {
 		t.start();
 	}
 	
+	
+	/**
+	 * loop through all of the notes given to the ChoirMember,
+	 * aquire the mutex, play the note, release the mutex.
+	 */
 	public void run() {
 		for (int i = 0; i<notes.size();i++) {
 			//acquire the mutex 
