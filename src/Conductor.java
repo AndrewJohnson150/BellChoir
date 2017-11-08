@@ -4,7 +4,6 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -16,7 +15,7 @@ public class Conductor {
 	 */
 	public static void main(String[] args) {
 		try {
-			Conductor c = new Conductor(args[0]);
+			new Conductor(args[0]);
 		} catch (FileNotFoundException e) {
 			System.err.println(e.getMessage());
 		}
