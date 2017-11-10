@@ -2,10 +2,16 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.LineUnavailableException;
+import javax.sound.sampled.SourceDataLine;
 
 public class Conductor {
 	
@@ -14,19 +20,27 @@ public class Conductor {
 	 * @param args - args[0] should designate the name of the song file to play
 	 */
 	public static void main(String[] args) {
-		try {
-			new Conductor(args[0]);
-		} catch (FileNotFoundException e) {
-			System.err.println(e.getMessage());
+		if (args.length==0) {
+			try {
+				new Conductor("musicFile.txt");
+			} catch (FileNotFoundException e) {
+				System.err.println("You've deleted or moved the default song and it can no longer be played.");
+			}
 		}
+		else
+			try {
+				new Conductor(args[0]);
+			} catch (FileNotFoundException e) {
+				System.err.println(e.getMessage());
+			}
 	}
 	
 	private boolean songIsOver;
 	private int turn;
 	private Map<Note,ChoirMember> enumMap;
 	private List<ChoirMember> choir;
-	private List<String> notes;
-	private List<String> lengths;
+	private List<BellNote> bellNotes;
+	private List<Note> notes;
 	
 	/**
 	 * This method does a lot. It reads the file, validates input, creates the ChoirMembers to play the song, plays the song,
@@ -34,14 +48,15 @@ public class Conductor {
 	 *  
 	 * @param fileName - the name of the file which contains the music
 	 * @throws FileNotFoundException
+	 * @throws LineUnavailableException 
 	 */
 	public Conductor(String fileName) throws FileNotFoundException {
 		enumMap = new HashMap<Note,ChoirMember>();
 		songIsOver = false;
 		turn = 0;
 		
-		notes = new ArrayList<String>();
-		lengths = new ArrayList<String>();
+		bellNotes = new ArrayList<BellNote>();
+		notes = new ArrayList<Note>();
 		
 		List<String> input = new ArrayList<String>();
 		
@@ -58,28 +73,37 @@ public class Conductor {
 				input.add(nextLine);
 				nextLine = in.readLine();
 			}
-		} catch (Exception ignored) {ignored.printStackTrace();}
+		} catch (IOException e) {
+			//put error message here
+			e.printStackTrace();
+			}
 
 		 //validateInput(input) validates the input
 		if (validateInput(input)) {
-			for (String s : input) {
-				String[] parsedLine = s.split("\\s+");
-				notes.add(parsedLine[0]);
-				lengths.add(parsedLine[1]);
-			}
-			choir = hireChoir();
-			startMusic();
-			while (!songIsOver) { //while we haven't been signalled that the song is over, keep waiting
-				synchronized (this) {
-					try {
-						wait();
-					} catch (InterruptedException e) {
-						e.printStackTrace();
+			
+			AudioFormat af = new AudioFormat(Note.SAMPLE_RATE, 8, 1, true, false);
+			try (final SourceDataLine line = AudioSystem.getSourceDataLine(af)) {
+				line.open();//rather tahn doing this here, this could be done in conductor and the line can be passed rather than the audioFormat
+	            line.start();
+				
+				hireChoir(line);
+				startMusic();
+				while (!songIsOver) { //while we haven't been signalled that the song is over, keep waiting
+					synchronized (this) {
+						try {
+							wait();
+						} catch (InterruptedException e) {
+							e.printStackTrace();
+						}
 					}
 				}
+				//once the song has ended, ensure all threads have joined.
+				fireChoir();
+				line.drain();
 			}
-			//once the song has ended, ensure all threads have joined.
-			fireChoir();
+			catch (LineUnavailableException e) {
+				System.err.println("Unable to play song. Check audio");
+			}
 		}
 		
 	}
@@ -103,7 +127,7 @@ public class Conductor {
 	 */
 	public synchronized void release() {
 		turn++;
-		if (turn==notes.size()) {
+		if (turn==bellNotes.size()) {
 			songIsOver = true;
 		}
 		notifyAll();	
@@ -116,25 +140,21 @@ public class Conductor {
 	 * an associated ChoirMember.
 	 * @return the list of ChoirMembers
 	 */
-	private ArrayList<ChoirMember> hireChoir() {
-		ArrayList<ChoirMember> c = new ArrayList<ChoirMember>();
+	private void hireChoir(SourceDataLine line) {
+		List<ChoirMember> c = new ArrayList<ChoirMember>();
 		
-		for (int i = 0;i<notes.size();i++) {
-			Note noteToPass = Note.valueOf(notes.get(i));
-			NoteLength lenToPass = numberToNoteLength(lengths.get(i));
+		for (int i = 0;i<bellNotes.size();i++) {
+
 			int turn = i;
-			if (enumMap.get(noteToPass)==null) {
-				ChoirMember newHire = new ChoirMember(this);
-				newHire.addNoteToPlay(noteToPass,lenToPass,turn);
-				c.add(newHire);
-				enumMap.put(noteToPass, newHire);
+			ChoirMember member = enumMap.get(notes.get(i));
+			if (member==null) {
+				member = new ChoirMember(this,line);
+				c.add(member);
+				enumMap.put(notes.get(i), member);
 			}
-			else {
-				ChoirMember member = (ChoirMember) enumMap.get(noteToPass);
-				member.addNoteToPlay(noteToPass,lenToPass,turn);
-			}
+			member.addNoteToPlay(bellNotes.get(i),turn);
 		}
-		return c;
+		choir = c;
 	}
 	
 	/**
@@ -170,20 +190,31 @@ public class Conductor {
 				System.err.println(s + " is not a valid line.");
 			}
 			else {
+				Note tempNote = null;
+				NoteLength tempLen = null;
 				//check the note
 				String note = parsedLine[0];
 				try {
-					Note.valueOf(note); //if this fails, it was invalid
-				} catch(Exception ignore) {
+					tempNote = Note.valueOf(note); //if this fails, it was invalid
+					notes.add(tempNote);
+				} catch (IllegalArgumentException e) {
 					valid = false;
 					System.err.println(note + " is not a valid note.");
 				}
 				
 				//check the length
 				String len = parsedLine[1];
-				if (numberToNoteLength(len)==null) {
+				tempLen = numberToNoteLength(len);
+				if (tempLen==null) {
 					System.err.println(len + " is not a valid note length.");
 					valid = false;
+				}
+					
+			
+			
+				//read the line into our input variable
+				if (valid) {
+					bellNotes.add(new BellNote(tempNote,tempLen));
 				}
 			}
 		}

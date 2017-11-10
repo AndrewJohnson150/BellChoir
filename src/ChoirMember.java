@@ -7,10 +7,9 @@ import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.SourceDataLine;
 
 public class ChoirMember extends Thread{
-	private List<Note> notes;
-	private List<NoteLength> lengths;
+	private List<BellNote> bellNotes;
 	private List<Integer> turns;
-	private final AudioFormat af;
+	private final SourceDataLine line;
 	private Thread t;
 	private Conductor mutex;
 	
@@ -19,12 +18,11 @@ public class ChoirMember extends Thread{
 	 * and {@link #startPlaying()}
 	 * @param c
 	 */
-	public ChoirMember(Conductor c) {
-		af = new AudioFormat(Note.SAMPLE_RATE, 8, 1, true, false);
+	public ChoirMember(Conductor c, SourceDataLine audioLine) {
+		line = audioLine;
 		t = new Thread(this);
 		mutex = c;
-		notes = new ArrayList<Note>();
-		lengths = new ArrayList<NoteLength>();
+		bellNotes = new ArrayList<BellNote>();
 		turns = new ArrayList<Integer>();
 	}
 	
@@ -34,9 +32,8 @@ public class ChoirMember extends Thread{
 	 * @param len the NoteLength which designates how long to play for
 	 * @param t the turn at which the note should be played
 	 */
-	public void addNoteToPlay(Note n, NoteLength len, int t) {
-		notes.add(n);
-		lengths.add(len);
+	public void addNoteToPlay(BellNote b, int t) {
+		bellNotes.add(b);
 		turns.add(t);
 	}
 	
@@ -53,14 +50,13 @@ public class ChoirMember extends Thread{
 	 * aquire the mutex, play the note, release the mutex.
 	 */
 	public void run() {
-		for (int i = 0; i<notes.size();i++) {
+		for (int i = 0; i<bellNotes.size();i++) {
 			//acquire the mutex 
 			mutex.acquire(turns.get(i));
 			
-			BellNote noteToPlay = new BellNote(notes.get(i),lengths.get(i));
 			try {
-				play(noteToPlay);
-			} catch (LineUnavailableException ignore) {ignore.printStackTrace();}
+				play(bellNotes.get(i));
+			} catch (LineUnavailableException ignore) {ignore.printStackTrace();} //add exception message
 			
 			//release the mutex
 			mutex.release();
@@ -74,12 +70,7 @@ public class ChoirMember extends Thread{
 	 * @param note the BellNote to play
 	 */
 	void play(BellNote note) throws LineUnavailableException {
-        try (final SourceDataLine line = AudioSystem.getSourceDataLine(af)) {
-            line.open();
-            line.start();
-            playNote(line, note);
-            line.drain();
-        }
+        playNote(line, note);
     }
 	
 	/**
