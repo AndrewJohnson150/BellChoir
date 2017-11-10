@@ -1,12 +1,15 @@
 # BellChoir
 
-## How I Met the Goals of Lab
+## How I Met the Goals of Lab 2
 
-My program reads and validates a file. Each ChoirMember can have multiple of the same note,
-but only one. I ensure this by using a hashMap to check which notes have already been mapped to a choir member. Each ChoirMember runs on its own thread.
-By using the Conductor as a mutex, I ensure only one thread is playing at
-a time. The BellNote is passed to a Choir Member so that it may be played, along with the turn it should be played at. Because they are added
-in the order they should be played, deciding which one to attempt first is simple.
+* [x] My program reads and validates a file. 
+* [x] Each ChoirMember can have multiple of the same note,
+but only one. 
+* [x] I ensure this by using a hashMap to check which notes have already been mapped to a choir member. 
+* [x] Each ChoirMember runs on its own thread.
+* [x] By using the Conductor as a mutex, I ensure only one thread is playing at
+a time. 
+* [x] The BellNote is passed to a Choir Member so that it may be played, along with the turn it should be played at.
 
 ## Challenges
 
