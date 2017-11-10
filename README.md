@@ -5,7 +5,7 @@
 My program reads and validates a file. Each ChoirMember can have multiple of the same note,
 but only one. I ensure this by using a hashMap to check which notes have already been mapped to a choir member.
 By using the Conductor as a mutex, I ensure only one thread is playing at
-a time. The BellNote is passed to a Choir Member so that it may be played, along with the turn it hsould be played at. Because they are added
+a time. The BellNote is passed to a Choir Member so that it may be played, along with the turn it should be played at. Because they are added
 in the order they should be played, deciding which one to attempt first is simple.
 
 ## Challenges
