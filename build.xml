@@ -23,7 +23,7 @@
 		</java>
 	</target>
 	<target name="songarg" unless="song">
-		<property name="song" value="${basedir}/${song}" />
+		<property name="song" value="${basedir}/musicFile.txt" />
 	</target>
 	<target name="clean">
 		<delete dir="${dist}" />

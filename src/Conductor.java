@@ -20,19 +20,11 @@ public class Conductor {
 	 * @param args - args[0] should designate the name of the song file to play
 	 */
 	public static void main(String[] args) {
-		if (args.length==0) {
-			try {
-				new Conductor("musicFile.txt");
-			} catch (FileNotFoundException e) {
-				System.err.println("You've deleted or moved the default song and it can no longer be played.");
-			}
+		try {
+			new Conductor(args[0]);
+		} catch (FileNotFoundException e) {
+			System.err.println(e.getMessage());
 		}
-		else
-			try {
-				new Conductor(args[0]);
-			} catch (FileNotFoundException e) {
-				System.err.println(e.getMessage());
-			}
 	}
 	
 	private boolean songIsOver;
@@ -60,6 +52,8 @@ public class Conductor {
 		
 		List<String> input = new ArrayList<String>();
 		
+		boolean validFile = true;
+		
 		File songFile = new File(fileName);
 		if (!songFile.exists()) {
 			throw new FileNotFoundException("File " + fileName + " cannot be located. Try again");
@@ -73,37 +67,39 @@ public class Conductor {
 				input.add(nextLine);
 				nextLine = in.readLine();
 			}
-		} catch (IOException e) {
-			//put error message here
-			e.printStackTrace();
-			}
+		} 
+		catch (IOException e) {
+			System.err.println("Error reading file, please check syntax and try again");
+			validFile = false;
+		}
 
 		 //validateInput(input) validates the input
-		if (validateInput(input)) {
-			
-			AudioFormat af = new AudioFormat(Note.SAMPLE_RATE, 8, 1, true, false);
-			try (final SourceDataLine line = AudioSystem.getSourceDataLine(af)) {
-				line.open();//rather tahn doing this here, this could be done in conductor and the line can be passed rather than the audioFormat
-	            line.start();
+		if (validFile) 
+			if (validateInput(input)) {
 				
-				hireChoir(line);
-				startMusic();
-				while (!songIsOver) { //while we haven't been signalled that the song is over, keep waiting
-					synchronized (this) {
-						try {
-							wait();
-						} catch (InterruptedException e) {
-							e.printStackTrace();
+				AudioFormat af = new AudioFormat(Note.SAMPLE_RATE, 8, 1, true, false);
+				try (final SourceDataLine line = AudioSystem.getSourceDataLine(af)) {
+					line.open();//rather tahn doing this here, this could be done in conductor and the line can be passed rather than the audioFormat
+		            line.start();
+					
+					hireChoir(line);
+					startMusic();
+					while (!songIsOver) { //while we haven't been signalled that the song is over, keep waiting
+						synchronized (this) {
+							try {
+								wait();
+							} catch (InterruptedException e) {
+								e.printStackTrace();
+							}
 						}
 					}
+					//once the song has ended, ensure all threads have joined.
+					fireChoir();
+					line.drain();
 				}
-				//once the song has ended, ensure all threads have joined.
-				fireChoir();
-				line.drain();
-			}
-			catch (LineUnavailableException e) {
-				System.err.println("Unable to play song. Check audio");
-			}
+				catch (LineUnavailableException e) {
+					System.err.println("Unable to play song. Check audio");
+				}
 		}
 		
 	}
@@ -183,6 +179,10 @@ public class Conductor {
 	private boolean validateInput(List<String> input) {
 		boolean valid = true;
 
+		if (input.size() == 0) {
+			System.err.println("Empty file. Please validate that the file you entered contains text.");
+			return false;
+		}
 		for (String s : input) {
 			String[] parsedLine = s.split("\\s+");
 			if (parsedLine.length!=2) {
